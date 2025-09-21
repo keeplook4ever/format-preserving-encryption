@@ -88,4 +88,38 @@ public class FormatPreservingServiceTests {
             assertEquals(plain, dec, "phone must decrypt back to original");
         }
     }
+
+    @Test
+    public void testPhone_encryptPhoneAllowLetters_keepEnds_roundtrip() throws Exception {
+        String plain = "+86-15618940601";
+        int keepPrefix = 3; // 保留前3位
+        int keepSuffix = 2; // 保留后2位
+
+        String enc = fps.encryptPhoneKeepEndsAllowLetters(plain, keepPrefix, keepSuffix);
+        assertNotNull(enc);
+
+        // digit/alpha core长度应保持一致
+        String plainCore = "";
+        for (int i=0;i<plain.length();i++){
+            char c = plain.charAt(i);
+            if (alphabetEngine.containsChar(c)) plainCore += c;
+        }
+        String encCore = "";
+        for (int i=0;i<enc.length();i++){
+            char c = enc.charAt(i);
+            if (alphabetEngine.containsChar(c)) encCore += c;
+        }
+        assertEquals(plainCore.length(), encCore.length(), "core length preserved");
+
+        // 保留的 prefix / suffix 数字应一致
+        if (plainCore.length() >= keepPrefix + keepSuffix) {
+            assertEquals(plainCore.substring(0, keepPrefix), encCore.substring(0, keepPrefix));
+            assertEquals(plainCore.substring(plainCore.length() - keepSuffix),
+                    encCore.substring(encCore.length() - keepSuffix));
+        }
+
+        String dec = fps.decryptPhoneKeepEndsAllowLetters(enc, keepPrefix, keepSuffix);
+        logRoundtrip("phone allow letters", plain, enc, dec);
+        assertEquals(plain, dec, "phone should round-trip after allow-letters encryption");
+    }
 }

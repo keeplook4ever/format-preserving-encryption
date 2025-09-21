@@ -7,13 +7,7 @@ import org.bouncycastle.crypto.params.KeyParameter;
 import java.util.*;
 
 /**
- * Extension: FPE over a custom alphabet (radix = alphabet.length()) that preserves formatting positions.
- *
- * Example usage:
- *   // alphabet includes digits and uppercase letters -> output may contain letters
- *   String alpha = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
- *   FF1BcEngineWithAlphabet eng = new FF1BcEngineWithAlphabet(key, alpha, tweak);
- *   String cipher = eng.encryptFormatted(" +1-202-555-0173 ", true/false keepLuhn);
+ * FPE engine over a custom alphabet.
  */
 public final class FF1BcEngineWithAlphabet {
     private final byte[] key;
@@ -44,11 +38,10 @@ public final class FF1BcEngineWithAlphabet {
     }
 
     /**
-     * Encrypt formatted input: preserves non-alphabet characters (positions), optionally preserves last char (keepLuhn-like).
+     * Encrypt formatted input: preserves non-alphabet characters (positions), optionally preserves last char (keepLast).
      */
     public String encryptFormatted(String input, boolean keepLast) throws Exception {
         FormatStrip fs = stripFormat(input);
-        // fs.alphabetChars only contains characters that are in alphabet
         String s = fs.alphaChars;
         if (s.length() == 0) return input;
 
@@ -89,8 +82,38 @@ public final class FF1BcEngineWithAlphabet {
         return reinsertFormat(fs, decAll);
     }
 
-    // ---------- internal: FF1 over alphabet ----------
+    // ---------- NEW: expose core operations for caller ----------
+    /**
+     * Encrypt a raw string consisting only of characters from this alphabet.
+     */
+    public String encryptChars(String raw) throws Exception {
+        if (raw == null || raw.isEmpty()) return raw;
+        // validate members belong to alphabet
+        for (int i=0;i<raw.length();i++){
+            if (!toVal.containsKey(raw.charAt(i))) throw new IllegalArgumentException("char '" + raw.charAt(i) + "' not in alphabet");
+        }
+        return bcFf1Process(raw, true);
+    }
 
+    /**
+     * Decrypt a raw string consisting only of characters from this alphabet.
+     */
+    public String decryptChars(String raw) throws Exception {
+        if (raw == null || raw.isEmpty()) return raw;
+        for (int i=0;i<raw.length();i++){
+            if (!toVal.containsKey(raw.charAt(i))) throw new IllegalArgumentException("char '" + raw.charAt(i) + "' not in alphabet");
+        }
+        return bcFf1Process(raw, false);
+    }
+
+    /**
+     * Returns true if the char is part of this engine's alphabet (useful when reinserting).
+     */
+    public boolean containsChar(char c) {
+        return toVal.containsKey(c);
+    }
+
+    // ---------- internal: FF1 over alphabet ----------
     private String bcFf1Process(String in, boolean forEncrypt) throws Exception {
         byte[] inVals = new byte[in.length()];
         for (int i = 0; i < in.length(); i++) {
@@ -113,10 +136,9 @@ public final class FF1BcEngineWithAlphabet {
         return sb.toString();
     }
 
-    // ---------- formatting helpers (similar to previous) ----------
-
+    // ---------- formatting helpers ----------
     private static class FormatStrip {
-        final String alphaChars; // concatenation of chars that belong to alphabet in original order
+        final String alphaChars;
         final List<Integer> nonAlphaPos;
         final List<Character> nonAlphaChars;
 

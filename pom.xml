@@ -12,7 +12,6 @@
 
     <modules>
         <module>fpe-maven-plugin</module>
-        <module>fpe-attack-demo</module>
         <module>plugin-consumer-demo</module>
     </modules>
 

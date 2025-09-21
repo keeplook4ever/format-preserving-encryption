@@ -44,14 +44,6 @@
             <version>${slf4j.version}</version>
         </dependency>
 
-        <!-- lightweight slf4j binding for tests (console logging) -->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>${slf4j.version}</version>
-            <scope>test</scope>
-        </dependency>
-
         <!-- JUnit Jupiter for tests -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -88,25 +80,16 @@
 
             <!-- Surefire for running tests -->
             <plugin>
-                <artifactId>maven-surefire-plugin</artifactId>
-                <version>3.2.5</version>
-                <configuration>
-                    <test>FormatPreservingTests</test> <!-- 如果你真的需要它 -->
-                    <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
-                    <useModulePath>false</useModulePath>
-                </configuration>
-            </plugin>
-            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
-                    <!-- 让控制台直接显示测试期间的输出（默认一般是显示，但明确写一下更保险） -->
+                    <!-- 不在pom里锁定具体的 <test>，交给命令行或默认模式去选择 -->
                     <redirectTestOutputToFile>false</redirectTestOutputToFile>
-                    <!-- 如果需要可以传 system properties 给 slf4j-simple；这里对 logback 不需要 -->
+                    <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
+                    <useModulePath>false</useModulePath>
                 </configuration>
             </plugin>
-
 
         </plugins>
     </build>

@@ -16,13 +16,99 @@ import java.util.Objects;
  * See earlier comments for behavior details.
  */
 public final class FormatPreservingService {
-    private final FF1BcEngineWithFormat digitsEngine;
-    private final FF1BcEngineWithAlphabet alphabetEngine; // optional
+    private final FF1BcEngineWithFormat digitsEngine;    // 只输出数字的 engine
+    private final FF1BcEngineWithAlphabet alphabetEngine; // 可输出字母 + 数字的 engine
 
     public FormatPreservingService(FF1BcEngineWithFormat digitsEngine, FF1BcEngineWithAlphabet alphabetEngine) {
-        this.digitsEngine = Objects.requireNonNull(digitsEngine, "digitsEngine required");
-        this.alphabetEngine = alphabetEngine; // may be null
+        this.digitsEngine = digitsEngine;
+        this.alphabetEngine = alphabetEngine;
     }
+
+    // ---------- 新增：手机号中间允许产生字母的加解密（保留前 keepPrefix 位和后 keepSuffix 位） ----------
+    public String encryptPhoneKeepEndsAllowLetters(String phone, int keepPrefix, int keepSuffix) throws Exception {
+        if (phone == null) return null;
+
+        // collect characters that alphabetEngine considers part of alphabet (for phone we assume alphabet contains 0-9A-Za-z...)
+        StringBuilder coreBuilder = new StringBuilder();
+        for (int i = 0; i < phone.length(); i++) {
+            char c = phone.charAt(i);
+            if (alphabetEngine.containsChar(c)) coreBuilder.append(c);
+        }
+        String core = coreBuilder.toString();
+        if (core.length() == 0) return phone;
+
+        if (keepPrefix < 0) keepPrefix = 0;
+        if (keepSuffix < 0) keepSuffix = 0;
+        if (core.length() < (keepPrefix + keepSuffix)) {
+            // nothing to encrypt (or too short) — return original
+            return phone;
+        }
+
+        String prefix = core.substring(0, keepPrefix);
+        String suffix = core.substring(core.length() - keepSuffix);
+        String middle = core.substring(keepPrefix, core.length() - keepSuffix);
+
+        // encrypt middle using alphabet engine (output may contain letters)
+        String encMiddle = alphabetEngine.encryptChars(middle);
+
+        String encCore = prefix + encMiddle + suffix;
+
+        // reinsert into original format: iterate original phone, replace characters that are in alphabet with next char from encCore
+        StringBuilder out = new StringBuilder();
+        int di = 0;
+        for (int i = 0; i < phone.length(); i++) {
+            char c = phone.charAt(i);
+            if (alphabetEngine.containsChar(c)) {
+                // take next from encCore
+                out.append(encCore.charAt(di++));
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    public String decryptPhoneKeepEndsAllowLetters(String cipher, int keepPrefix, int keepSuffix) throws Exception {
+        if (cipher == null) return null;
+
+        // collect core chars that belong to alphabet (these include digits or letters produced earlier)
+        StringBuilder coreBuilder = new StringBuilder();
+        for (int i = 0; i < cipher.length(); i++) {
+            char c = cipher.charAt(i);
+            if (alphabetEngine.containsChar(c)) coreBuilder.append(c);
+        }
+        String core = coreBuilder.toString();
+        if (core.length() == 0) return cipher;
+
+        if (keepPrefix < 0) keepPrefix = 0;
+        if (keepSuffix < 0) keepSuffix = 0;
+        if (core.length() < (keepPrefix + keepSuffix)) {
+            return cipher;
+        }
+
+        String prefix = core.substring(0, keepPrefix);
+        String suffix = core.substring(core.length() - keepSuffix);
+        String middle = core.substring(keepPrefix, core.length() - keepSuffix);
+
+        // decrypt middle using alphabet engine (should recover original digits)
+        String decMiddle = alphabetEngine.decryptChars(middle);
+
+        String decCore = prefix + decMiddle + suffix;
+
+        // reinsert decrypted core into the cipher's format positions (where alphabetEngine.containsChar was true)
+        StringBuilder out = new StringBuilder();
+        int di = 0;
+        for (int i = 0; i < cipher.length(); i++) {
+            char c = cipher.charAt(i);
+            if (alphabetEngine.containsChar(c)) {
+                out.append(decCore.charAt(di++));
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
 
     public FormatPreservingService(FF1BcEngineWithFormat digitsEngine) {
         this(digitsEngine, null);
