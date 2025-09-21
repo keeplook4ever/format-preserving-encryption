@@ -1,0 +1,37 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>com.lennon.demo</groupId>
+    <artifactId>plugin-consumer-demo</artifactId>
+    <version>1.0.0</version>
+
+    <build>
+        <plugins>
+            <!-- 引用你刚才 install 的插件 -->
+            <plugin>
+                <groupId>com.lennon.security</groupId>
+                <artifactId>format-preserving-encrypt-maven-plugin</artifactId>
+                <version>1.0.0</version>
+                <configuration>
+                    <!-- 配置参数示例 -->
+                    <tweak>phone:v1</tweak>
+                    <phoneAlphabet>BASE62</phoneAlphabet>
+                    <phoneKeepPrefix>3</phoneKeepPrefix>
+                    <phoneKeepSuffix>4</phoneKeepSuffix>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>encrypt-sample</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>encrypt</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
