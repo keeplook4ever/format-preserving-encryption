@@ -3,8 +3,6 @@ package com.lennon.security.spi;
 import com.lennon.security.alphabet.Alphabet;
 import com.lennon.security.core.PRF;
 
-import java.nio.charset.StandardCharsets;
-
 public final class SimpleStreamFpeEngine implements FpeEngine {
     private final PRF prf;
     private final int rounds;
