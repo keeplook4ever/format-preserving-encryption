@@ -1,123 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+                             https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.lennon.security</groupId>
-    <artifactId>format-preserving-encrypt-maven-plugin</artifactId>
-    <version>1.0.0</version>
-    <packaging>maven-plugin</packaging>
-
-    <name>Format Preserving Encrypt Maven Plugin</name>
-    <description>Format-preserving encryption + masking Maven plugin with pluggable FPE engine.</description>
+    <artifactId>fpe-nist-ff1</artifactId>
+    <version>0.1.0</version>
+    <name>fpe-nist-ff1</name>
+    <packaging>jar</packaging>
 
     <properties>
-        <maven.compiler.source>1.8</maven.compiler.source>
-        <maven.compiler.target>1.8</maven.compiler.target>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <junit.jupiter.version>5.9.3</junit.jupiter.version>
+        <bc.version>1.82</bc.version>
+        <commons.codec.version>1.16.0</commons.codec.version>
+        <slf4j.version>2.0.9</slf4j.version>
     </properties>
 
     <dependencies>
-        <!-- HMAC SHA-256 -->
+        <!-- Bouncy Castle provider (use artifact matching your JDK; jdk15to18 works for many JDKs) -->
+        <dependency>
+            <groupId>org.bouncycastle</groupId>
+            <artifactId>bcprov-jdk15to18</artifactId>
+            <version>${bc.version}</version>
+        </dependency>
+
+        <!-- Commons Codec (Hex helper used by UtilsBytes/PRF) -->
         <dependency>
             <groupId>commons-codec</groupId>
             <artifactId>commons-codec</artifactId>
-            <version>1.16.0</version>
+            <version>${commons.codec.version}</version>
         </dependency>
 
-        <!-- Maven Plugin API (AbstractMojo 等) -->
+        <!-- SLF4J API -->
         <dependency>
-            <groupId>org.apache.maven</groupId>
-            <artifactId>maven-plugin-api</artifactId>
-            <version>3.9.6</version>
-            <scope>provided</scope>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
         </dependency>
 
-        <!-- Maven Plugin Annotations (@Mojo @Parameter 等) -->
+        <!-- lightweight slf4j binding for tests (console logging) -->
         <dependency>
-            <groupId>org.apache.maven.plugin-tools</groupId>
-            <artifactId>maven-plugin-annotations</artifactId>
-            <version>3.10.2</version>
-            <scope>provided</scope>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+            <scope>test</scope>
         </dependency>
 
-        <!-- JUnit 5 -->
+        <!-- JUnit Jupiter for tests -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
-            <version>5.10.2</version>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
-            <version>5.10.2</version>
+            <version>${junit.jupiter.version}</version>
             <scope>test</scope>
         </dependency>
-        <!-- SLF4J API（测试用）-->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.13</version>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- 日志实现：logback（仅测试）-->
+        <!-- test-time logger implementation so tests actually print logs -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
             <artifactId>logback-classic</artifactId>
-            <version>1.5.6</version>
+            <version>1.4.11</version> <!-- 或最新稳定版本 -->
             <scope>test</scope>
-        </dependency>
-
-        <!-- Maven Plugin API 和 注解（provided）-->
-        <dependency>
-            <groupId>org.apache.maven</groupId>
-            <artifactId>maven-plugin-api</artifactId>
-            <version>3.9.6</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-lang3</artifactId>
-            <version>3.18.0</version>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.maven.plugin-tools</groupId>
-            <artifactId>maven-plugin-annotations</artifactId>
-            <version>3.10.2</version>
-            <scope>provided</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <!-- Compiler: use release to avoid system-modules warning -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-plugin-plugin</artifactId>
-                <version>3.10.2</version>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
                 <configuration>
-                    <skipErrorNoDescriptorsFound>false</skipErrorNoDescriptorsFound>
+                    <!-- prefer release over source/target to set system modules properly -->
+                    <release>${maven.compiler.release}</release>
                 </configuration>
-                <executions>
-                    <execution>
-                        <id>default-descriptor</id>
-                        <goals>
-                            <goal>descriptor</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
 
+            <!-- Surefire for running tests -->
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <test>FormatPreservingTests</test> <!-- 如果你真的需要它 -->
+                    <failIfNoSpecifiedTests>false</failIfNoSpecifiedTests>
+                    <useModulePath>false</useModulePath>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
                 <configuration>
-                    <useSystemClassLoader>true</useSystemClassLoader>
+                    <!-- 让控制台直接显示测试期间的输出（默认一般是显示，但明确写一下更保险） -->
+                    <redirectTestOutputToFile>false</redirectTestOutputToFile>
+                    <!-- 如果需要可以传 system properties 给 slf4j-simple；这里对 logback 不需要 -->
                 </configuration>
             </plugin>
+
+
         </plugins>
     </build>
+
 
 </project>
