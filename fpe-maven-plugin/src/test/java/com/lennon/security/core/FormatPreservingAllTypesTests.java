@@ -254,8 +254,8 @@ public class FormatPreservingAllTypesTests {
     public void IgnoreTypeEncDec() throws Exception {
 //        FormatPreservingService svc = new FormatPreservingService(digitsEngine, alphabetEngine);
         String s1 = "abc-123_DEF@domain.com";
-        String c1 = fps.encryptAnyUnicodeOpaque(s1);
-        String p1 = fps.decryptAnyUnicodeOpaque(c1);
+        String c1 = fps.encryptOpaqueAll(s1);
+        String p1 = fps.decryptOpaqueAll(c1);
         logRoundtrip("email", s1, c1, p1);
         assertEquals(s1, p1);
 

@@ -36,3 +36,8 @@ mvn -pl fpe-maven-plugin -am deploy
 ```
 
 
+## FPE_KEY_HEX key 长度：64位
+```bash
+openssl rand -hex 32
+```
+
