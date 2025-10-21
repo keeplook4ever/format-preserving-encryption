@@ -4,6 +4,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Base64;
+import java.nio.charset.StandardCharsets;
 
 /**
  * Format preserving business wrapper.
@@ -110,9 +112,9 @@ public final class FormatPreservingService {
     }
 
 
-    public FormatPreservingService(FF1BcEngineWithFormat digitsEngine) {
-        this(digitsEngine, null);
-    }
+//    public FormatPreservingService(FF1BcEngineWithFormat digitsEngine) {
+//        this(digitsEngine, null);
+//    }
 
     // ---------------- Email ----------------
 
@@ -254,6 +256,7 @@ public final class FormatPreservingService {
     /**
      * Backwards compatibility: old code/tests may call encryptPhoneKeepEnds(...)
      * Delegate to the new encryptPhoneKeepPrefix(...) implementation.
+     * @deprecated 请使用 {@link #encryptPhoneKeepPrefix(String, int, int)} 代替
      */
     @Deprecated
     public String encryptPhoneKeepEnds(String phone, int keepPrefix, int keepSuffix) throws Exception {
@@ -264,6 +267,167 @@ public final class FormatPreservingService {
     public String decryptPhoneKeepEnds(String cipher, int keepPrefix, int keepSuffix) throws Exception {
         return decryptPhoneKeepPrefix(cipher, keepPrefix, keepSuffix);
     }
+
+    // ---------- Any-UTF8：任意 Unicode 文本（含中文）→ 可打印密文 ----------
+    /**
+     * 将任意 Unicode 文本转 UTF-8，再用 Base64URL(无填充) 编码后，整体做 FPE 加密。
+     * 输出仅包含 [A-Za-z0-9-_]，可安全存储/传输。
+     * 长度会变长：适用于将任意文本加密（中文等，非数字字母的）
+     */
+    public String encryptAnyUnicodeOpaque(String input) throws Exception {
+        if (input == null) return null;
+        if (input.isEmpty()) return input;
+
+        // 1) UTF-8 → Base64URL(无填充)
+        String b64url = Base64.getUrlEncoder()
+                .withoutPadding()
+                .encodeToString(input.getBytes(StandardCharsets.UTF_8)); // 只含 A-Z a-z 0-9 - _
+
+        if (alphabetEngine == null) {
+            // 若仅有 digitsEngine，没法覆盖 -/_；务必注入 alphabetEngine（推荐字母表含 A-Z a-z 0-9 - _）
+            throw new IllegalStateException("alphabetEngine is required for Base64URL FPE.");
+        }
+
+        // 2) 整段 FPE（radix 需覆盖 A-Z a-z 0-9 - _；你现有 alphabet 里包含 -/_ 就可以）
+        String enc = alphabetEngine.encryptChars(b64url);
+
+        return enc;
+    }
+
+
+    /**
+     * 与 encryptAnyUnicodeOpaque 对称：先 FPE 解密，再 Base64URL 解码为 UTF-8 原文。
+     */
+    public String decryptAnyUnicodeOpaque(String cipher) throws Exception {
+        if (cipher == null) return null;
+        if (cipher.isEmpty()) return cipher;
+        if (alphabetEngine == null) {
+            throw new IllegalStateException("alphabetEngine is required for Base64URL FPE.");
+        }
+
+        // 1) 先整段 FPE 解密
+        String b64url = alphabetEngine.decryptChars(cipher);
+
+        // 2) Base64URL(无填充) → UTF-8
+        byte[] bytes = Base64.getUrlDecoder().decode(b64url);
+        return new String(bytes, StandardCharsets.UTF_8);
+    }
+
+    // ---------- Opaque: 对“所有类型数据”的通用加/解密（按 alphabet 覆盖的字符整体处理） ----------
+    /**
+     * 通用加密：对输入字符串中属于 alphabetEngine 字母表的字符整体加密；非字母表字符保持不变。
+     * 不区分数据类型，不使用标记。用于“默认格式：xxxxxxx -> yyyyyyy”的通用需求。
+     */
+    public String encryptOpaqueAll(String input) throws Exception {
+        if (input == null) return null;
+        if (input.isEmpty()) return input;
+        if (alphabetEngine == null) {
+            // 若确实只注入了 digitsEngine，可退化为仅加密数字、其余保持；否则建议总是注入 alphabetEngine
+            return encryptOpaqueAllWithDigitsFallback(input);
+        }
+
+        // 1) 抽取“可加密核心串”
+        StringBuilder core = new StringBuilder();
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (alphabetEngine.containsChar(c)) core.append(c);
+        }
+        if (core.length() == 0) return input; // 无可加密字符，原样返回
+
+        // 2) 对核心串整体加密（允许输出含字母与数字）
+        String encCore = alphabetEngine.encryptChars(core.toString());
+
+        // 3) 回填到原位置（只替换 alphabet 内字符）
+        StringBuilder out = new StringBuilder(input.length());
+        int di = 0;
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (alphabetEngine.containsChar(c)) {
+                out.append(encCore.charAt(di++));
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    /**
+     * 通用解密：与 encryptOpaqueAll 对称。对属于 alphabetEngine 字母表的字符整体解密并回填。
+     */
+    public String decryptOpaqueAll(String cipher) throws Exception {
+        if (cipher == null) return null;
+        if (cipher.isEmpty()) return cipher;
+        if (alphabetEngine == null) {
+            return decryptOpaqueAllWithDigitsFallback(cipher);
+        }
+
+        StringBuilder core = new StringBuilder();
+        for (int i = 0; i < cipher.length(); i++) {
+            char c = cipher.charAt(i);
+            if (alphabetEngine.containsChar(c)) core.append(c);
+        }
+        if (core.length() == 0) return cipher;
+
+        String decCore = alphabetEngine.decryptChars(core.toString());
+
+        StringBuilder out = new StringBuilder(cipher.length());
+        int di = 0;
+        for (int i = 0; i < cipher.length(); i++) {
+            char c = cipher.charAt(i);
+            if (alphabetEngine.containsChar(c)) {
+                out.append(decCore.charAt(di++));
+            } else {
+                out.append(c);
+            }
+        }
+        return out.toString();
+    }
+
+    /* ---------- 可选：当只配置了 digitsEngine、没有 alphabetEngine 时的退化策略 ---------- */
+    /* 仅加密数字字符，非数字字符保持不变；若希望更强一致性，请务必注入 alphabetEngine。 */
+    private String encryptOpaqueAllWithDigitsFallback(String input) throws Exception {
+        List<Integer> digitPos = new ArrayList<>();
+        StringBuilder digits = new StringBuilder();
+        for (int i = 0; i < input.length(); i++) {
+            char c = input.charAt(i);
+            if (Character.isDigit(c)) {
+                digitPos.add(i);
+                digits.append(c);
+            }
+        }
+        if (digits.length() == 0) return input;
+        String enc = digitsEngine.encryptFormatted(digits.toString(), false);
+
+        char[] out = input.toCharArray();
+        for (int i = 0; i < digitPos.size(); i++) {
+            out[digitPos.get(i)] = enc.charAt(i);
+        }
+        return new String(out);
+    }
+
+    private String decryptOpaqueAllWithDigitsFallback(String cipher) throws Exception {
+        List<Integer> digitPos = new ArrayList<>();
+        StringBuilder digits = new StringBuilder();
+        for (int i = 0; i < cipher.length(); i++) {
+            char c = cipher.charAt(i);
+            if (Character.isDigit(c)) {
+                digitPos.add(i);
+                digits.append(c);
+            }
+        }
+        if (digits.length() == 0) return cipher;
+        String dec = digitsEngine.decryptFormatted(digits.toString(), false);
+
+        char[] out = cipher.toCharArray();
+        for (int i = 0; i < digitPos.size(); i++) {
+            out[digitPos.get(i)] = dec.charAt(i);
+        }
+        return new String(out);
+    }
+
+
+
+
 
     // ---------- fallback helpers for email local-part numeric segments ----------
     private String encryptLocalPartNumericSegmentsWithFallback(String local) {
@@ -323,4 +487,6 @@ public final class FormatPreservingService {
         }
         return sb.toString();
     }
+
+
 }

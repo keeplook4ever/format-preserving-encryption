@@ -36,15 +36,27 @@ public class FormatPreservingAllTypesTests {
 
         // sample small round-trip checks
         String phone = "+1-202-555-0173";
-        String encPhone = fps.encryptPhoneKeepPrefix(phone, 2, 2);
-        String decPhone = fps.decryptPhoneKeepPrefix(encPhone, 2, 2);
+        String encPhone = fps.encryptPhoneKeepPrefix(phone, 1, 2);
+        String decPhone = fps.decryptPhoneKeepPrefix(encPhone, 1, 2);
         log.info("consumer-smoke phone: {} -> {} -> {}", phone, encPhone, decPhone);
         assertEquals(phone, decPhone);
+
+        String phone_china = "+86-15618940621";
+        String encPhone_china = fps.encryptPhoneKeepEndsAllowLetters(phone_china, 3, 4);
+        String decPhone_china = fps.decryptPhoneKeepEndsAllowLetters(encPhone_china, 3, 4);
+        log.info("cosumer-smoke phonewithLetters: {} -> {} -> {}", phone_china, encPhone_china, decPhone_china);
+        assertEquals(phone_china, decPhone_china);
 
         String email = "alice.smith-01_test@example.com";
         String encEmail = fps.encryptEmailWithMarker(email);
         String decEmail = fps.decryptEmailWithMarker(encEmail);
         log.info("consumer-smoke email: {} -> {} -> {}", email, encEmail, decEmail);
         assertEquals(email, decEmail);
+
+
+//        String originSample = "This is a sample plain text";
+//        String encSample = fps.encryptLocalPartNumericSegmentsWithFallback(originSample);
+
+
     }
 }

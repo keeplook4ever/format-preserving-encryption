@@ -39,8 +39,11 @@ public class FormatPreservingAllTypesTests {
         digitsEngine = new FF1BcEngineWithFormat(key, tweak);
 
         // alphabet engine that supports 0-9 + a-z + A-Z + some safe punctuation
-        String alpha = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-";
-        alphabetEngine = new FF1BcEngineWithAlphabet(key, alpha, tweak);
+//        String alpha = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ._-";
+        String asciiVisibleAlphabet =
+                "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ" +
+                        "!@#$%^&*()_+-=[]{}|;:',.<>/?`~\\\"";
+        alphabetEngine = new FF1BcEngineWithAlphabet(key, asciiVisibleAlphabet, tweak);
 
         // service orchestrator used by higher-level tests
         fps = new FormatPreservingService(digitsEngine, alphabetEngine);
@@ -241,9 +244,34 @@ public class FormatPreservingAllTypesTests {
         assertEquals(chineseId, dec1);
 
         // Driver license: alphanumeric -> alphabet engine
-        String enc2 = alphabetEngine.encryptFormatted(drivers, false);
-        String dec2 = alphabetEngine.decryptFormatted(enc2, false);
+        String enc2 = alphabetEngine.encryptFormatted(drivers, true);
+        String dec2 = alphabetEngine.decryptFormatted(enc2, true);
         logRoundtrip("driver-license", drivers, enc2, dec2);
         assertEquals(drivers, dec2);
     }
+
+    @Test
+    public void IgnoreTypeEncDec() throws Exception {
+//        FormatPreservingService svc = new FormatPreservingService(digitsEngine, alphabetEngine);
+        String s1 = "abc-123_DEF@domain.com";
+        String c1 = fps.encryptAnyUnicodeOpaque(s1);
+        String p1 = fps.decryptAnyUnicodeOpaque(c1);
+        logRoundtrip("email", s1, c1, p1);
+        assertEquals(s1, p1);
+
+        // 纯文本/姓名/地址
+        String s2 = "张三-上海No.88，A座-9F";
+        String c2 = fps.encryptAnyUnicodeOpaque(s2);
+        String p2 = fps.decryptAnyUnicodeOpaque(c2);
+        logRoundtrip("addres", s2, c2, p2);
+        assertEquals(s2, p2);
+
+        // 账号/订单号
+        String s3 = "ORD-2025-10-21-000123";
+        String c3 = fps.encryptAnyUnicodeOpaque(s3);
+        String p3 = fps.decryptAnyUnicodeOpaque(c3);
+        logRoundtrip("orderID", s3, c3, p3);
+        assertEquals(s3, p3);
+    }
+
 }
